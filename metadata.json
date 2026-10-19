@@ -1,0 +1,6 @@
+{
+  "name": "منصة الإدارة المدرسية والتقويم الخارجي",
+  "description": "منصة الإدارة المدرسية الرقمية ونظام التقويم المدرسي الخارجي لمتوسطة وثانوية الدرب الأولى - إدارة التعليم بجازان",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
