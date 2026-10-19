@@ -63,6 +63,23 @@ export default function App() {
     });
   }, []);
 
+  // Shared indicators & evidence from Firebase (so every browser/user sees the same data)
+  useEffect(() => {
+    let unsubscribe: () => void = () => {};
+    import('./services/firebaseService').then(({ firebaseService }) => {
+      if (!firebaseService.isConfigured()) return;
+      unsubscribe = firebaseService.subscribeToIndicators((meta, evidence) => {
+        storageService.migrateLocalToFirebase(meta);
+        setIndicators((prev) => {
+          const merged = storageService.applyRemoteIndicators(prev, meta, evidence);
+          storageService.cacheIndicators(merged);
+          return merged;
+        });
+      });
+    });
+    return () => unsubscribe();
+  }, []);
+
   // Check if teacher submission window is currently open
   const isTeacherSubmissionOpen = useMemo(() => {
     if (settings.teacherSubmissionsLocked) return false;

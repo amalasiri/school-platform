@@ -396,7 +396,84 @@ export const storageService = {
   },
 
   saveIndicators(indicators: Indicator[]) {
+    const previous = this.getIndicators();
     localStorage.setItem(`${STORAGE_PREFIX}indicators`, JSON.stringify(indicators));
+    this.pushIndicatorChanges(previous, indicators);
+  },
+
+  // Local cache only (used when data arrives from Firebase, so it is not pushed back)
+  cacheIndicators(indicators: Indicator[]) {
+    localStorage.setItem(`${STORAGE_PREFIX}indicators`, JSON.stringify(indicators));
+  },
+
+  // Push only what changed to Firebase so every browser/user sees the same data
+  pushIndicatorChanges(previous: Indicator[], next: Indicator[]) {
+    if (!firebaseService.isConfigured()) return;
+    const metaOf = (i: Indicator) =>
+      JSON.stringify([i.status, i.notes, i.isApprovedByPrincipal, i.approvedAt, i.approvedBy, i.excluded, i.lastUpdated]);
+    const prevMap = new Map(previous.map((i) => [i.id, i]));
+    next.forEach((ind) => {
+      const prev = prevMap.get(ind.id);
+      if (!prev || metaOf(prev) !== metaOf(ind)) {
+        firebaseService.saveIndicatorMeta(ind).catch((e) => console.warn('Firebase meta sync failed:', e));
+      }
+      const prevFiles = new Map((prev?.evidenceFiles || []).map((f) => [f.id, f]));
+      const nextFiles = new Map((ind.evidenceFiles || []).map((f) => [f.id, f]));
+      nextFiles.forEach((f, id) => {
+        const old = prevFiles.get(id);
+        if (!old || JSON.stringify(old) !== JSON.stringify(f)) {
+          firebaseService.putEvidence(ind.id, f).catch((e) => console.warn('Firebase evidence sync failed:', e));
+        }
+      });
+      prevFiles.forEach((_f, id) => {
+        if (!nextFiles.has(id)) {
+          firebaseService.removeEvidence(ind.id, id).catch((e) => console.warn('Firebase evidence delete failed:', e));
+        }
+      });
+    });
+  },
+
+  // One-time upload of what this browser already had locally (Drive files only)
+  migrateLocalToFirebase(remoteMeta: Record<string, any>) {
+    const flag = `${STORAGE_PREFIX}fb_migrated_v1`;
+    if (localStorage.getItem(flag)) return;
+    const local = this.getIndicators();
+    local.forEach((ind) => {
+      (ind.evidenceFiles || []).forEach((f) => {
+        if (f.storageProvider === 'drive' && f.driveFileId) {
+          firebaseService.putEvidence(ind.id, f).catch(() => {});
+        }
+      });
+      if (!remoteMeta || !remoteMeta[ind.id]) {
+        firebaseService.saveIndicatorMeta(ind).catch(() => {});
+      }
+    });
+    localStorage.setItem(flag, '1');
+  },
+
+  // Merge Firebase data into the local indicator list (Firebase wins)
+  applyRemoteIndicators(
+    current: Indicator[],
+    meta: Record<string, any>,
+    evidence: Record<string, Record<string, EvidenceFile>>
+  ): Indicator[] {
+    const migrated = Boolean(localStorage.getItem(`${STORAGE_PREFIX}fb_migrated_v1`));
+    return current.map((ind) => {
+      const m = meta?.[ind.id] || {};
+      const files = evidence?.[ind.id] ? Object.values(evidence[ind.id]) : [];
+      files.sort((a, b) => String(a.uploadDate).localeCompare(String(b.uploadDate)) || String(a.id).localeCompare(String(b.id)));
+      return {
+        ...ind,
+        ...(m.status ? { status: m.status } : {}),
+        notes: m.notes ?? ind.notes,
+        isApprovedByPrincipal: m.isApprovedByPrincipal ?? ind.isApprovedByPrincipal,
+        approvedAt: m.approvedAt ?? undefined,
+        approvedBy: m.approvedBy ?? undefined,
+        excluded: m.excluded ?? ind.excluded,
+        lastUpdated: m.lastUpdated ?? ind.lastUpdated,
+        evidenceFiles: migrated ? files : ind.evidenceFiles,
+      };
+    });
   },
 
   getAuditLogs(): AuditLog[] {

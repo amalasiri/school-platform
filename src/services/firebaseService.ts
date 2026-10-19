@@ -1,7 +1,7 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getDatabase, ref, set, get, onValue, Database } from 'firebase/database';
+import { getDatabase, ref, set, get, remove, onValue, Database } from 'firebase/database';
 import { getFirestore, doc, setDoc, getDoc, Firestore } from 'firebase/firestore';
-import { EvidenceFile } from '../types';
+import { EvidenceFile, Indicator } from '../types';
 
 export interface FirebaseDeadlinePayload {
   deadline: string;
@@ -180,6 +180,67 @@ export const firebaseService = {
       console.warn('Firebase RTDB subscription warning:', err);
     }
     return () => {};
+  },
+
+
+  // ---------- Shared indicators & evidence (visible to every browser / user) ----------
+  // Layout in Realtime Database:
+  //   indicators/{indicatorId}            -> status, notes, approval fields
+  //   evidence/{indicatorId}/{fileId}     -> one evidence record (Drive links + metadata)
+  // Evidence is stored one-child-per-file so two users uploading to the same
+  // indicator never overwrite each other.
+  async saveIndicatorMeta(ind: Indicator): Promise<void> {
+    const { rtdb } = initFirebase();
+    if (!rtdb) return;
+    const meta = {
+      status: ind.status ?? null,
+      notes: ind.notes ?? '',
+      isApprovedByPrincipal: Boolean(ind.isApprovedByPrincipal),
+      approvedAt: ind.approvedAt ?? null,
+      approvedBy: ind.approvedBy ?? null,
+      excluded: Boolean(ind.excluded),
+      lastUpdated: ind.lastUpdated ?? null,
+    };
+    await set(ref(rtdb, `indicators/${ind.id}`), JSON.parse(JSON.stringify(meta)));
+  },
+
+  async putEvidence(indicatorId: string, file: EvidenceFile): Promise<void> {
+    const { rtdb } = initFirebase();
+    if (!rtdb) return;
+    await set(ref(rtdb, `evidence/${indicatorId}/${file.id}`), JSON.parse(JSON.stringify(file)));
+  },
+
+  async removeEvidence(indicatorId: string, fileId: string): Promise<void> {
+    const { rtdb } = initFirebase();
+    if (!rtdb) return;
+    await remove(ref(rtdb, `evidence/${indicatorId}/${fileId}`));
+  },
+
+  // Live listener; fires once both nodes have loaded, then on every change.
+  subscribeToIndicators(
+    callback: (
+      meta: Record<string, any>,
+      evidence: Record<string, Record<string, EvidenceFile>>
+    ) => void
+  ): () => void {
+    const { rtdb } = initFirebase();
+    if (!rtdb) return () => {};
+    let meta: Record<string, any> | null = null;
+    let evidence: Record<string, Record<string, EvidenceFile>> | null = null;
+    const emit = () => {
+      if (meta !== null && evidence !== null) callback(meta, evidence);
+    };
+    const u1 = onValue(
+      ref(rtdb, 'indicators'),
+      (snap) => { meta = snap.val() || {}; emit(); },
+      (err) => console.warn('Firebase indicators listener error:', err)
+    );
+    const u2 = onValue(
+      ref(rtdb, 'evidence'),
+      (snap) => { evidence = snap.val() || {}; emit(); },
+      (err) => console.warn('Firebase evidence listener error:', err)
+    );
+    return () => { u1(); u2(); };
   },
 
   // Save evidence metadata to Firebase Realtime Database
