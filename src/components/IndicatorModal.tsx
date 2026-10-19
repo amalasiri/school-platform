@@ -43,7 +43,7 @@ export const IndicatorModal: React.FC<IndicatorModalProps> = ({
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [fileDescription, setFileDescription] = useState<string>('');
-  const [previewFile, setPreviewFile] = useState<{ url: string; name: string; type: string } | null>(null);
+  const [previewFile, setPreviewFile] = useState<{ url: string; name: string; type: string; openUrl?: string } | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
 
@@ -154,6 +154,10 @@ export const IndicatorModal: React.FC<IndicatorModalProps> = ({
   const handleDownloadFile = async (file: EvidenceFile) => {
     try {
       const blob = await storageService.getFileBlob(file.id);
+      if (!blob && file.driveViewUrl) {
+        window.open(file.driveViewUrl, '_blank', 'noopener');
+        return;
+      }
       if (!blob) {
         alert('تعذر استرجاع ملف الشاهد من التخزين المحلي.');
         return;
@@ -174,6 +178,10 @@ export const IndicatorModal: React.FC<IndicatorModalProps> = ({
 
   const handlePreviewFile = async (file: EvidenceFile) => {
     try {
+      if (file.drivePreviewUrl) {
+        setPreviewFile({ url: file.drivePreviewUrl, name: file.fileName, type: 'drive', openUrl: file.driveViewUrl });
+        return;
+      }
       if (file.serverUrl) {
         setPreviewFile({
           url: file.serverUrl,
@@ -623,7 +631,20 @@ export const IndicatorModal: React.FC<IndicatorModalProps> = ({
               </button>
             </div>
             <div className="p-4 flex-1 overflow-auto flex items-center justify-center bg-slate-100 min-h-[400px]">
-              {previewFile.type.includes('image') ? (
+              {previewFile.type === 'drive' ? (
+                <div className="w-full flex flex-col gap-2">
+                  <iframe
+                    src={previewFile.url}
+                    title={previewFile.name}
+                    className="w-full h-[70vh] border-0 rounded bg-white"
+                  />
+                  {previewFile.openUrl && (
+                    <a href={previewFile.openUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-emerald-700 underline self-center">
+                      فتح في Google Drive
+                    </a>
+                  )}
+                </div>
+              ) : previewFile.type.includes('image') ? (
                 <img
                   src={previewFile.url}
                   alt={previewFile.name}

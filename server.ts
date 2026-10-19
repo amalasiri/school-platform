@@ -281,6 +281,10 @@ async function handleDriveUpload(req: Request, res: Response) {
     let driveFileId = '';
     let driveUploadedAt = new Date().toISOString();
     let driveResultFolder = targetFolderName;
+    let driveViewUrl: string | undefined;
+    let drivePreviewUrl: string | undefined;
+    let driveThumbnailUrl: string | undefined;
+    let driveShared: boolean | undefined;
     let storageProvider: 'drive' | 'local' = 'local';
     let responseMessage = '';
 
@@ -299,23 +303,37 @@ async function handleDriveUpload(req: Request, res: Response) {
         const appsScriptRes = await fetch(appsScriptUrl!, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
+            // text/plain avoids Apps Script CORS/preflight issues; the body is still JSON
+            'Content-Type': 'text/plain;charset=utf-8',
           },
           body: JSON.stringify(appsScriptPayload),
           redirect: 'follow',
         });
 
-        if (!appsScriptRes.ok) {
-          const errText = await appsScriptRes.text();
-          throw new Error(`خطأ من تطبيق Google Apps Script (رمز ${appsScriptRes.status}): ${errText}`);
+        const rawText = await appsScriptRes.text();
+        const looksLikeHtml = /^\s*<(!doctype|html)/i.test(rawText);
+        if (looksLikeHtml) {
+          console.error('Apps Script returned HTML, status', appsScriptRes.status);
+          throw new Error('خدمة التخزين غير متاحة، تحقق من إعدادات نشر Google Apps Script (Execute as: Me / Who has access: Anyone).');
         }
 
-        const driveJson: any = await appsScriptRes.json();
-        if (!driveJson.success) {
-          throw new Error(driveJson.error || 'فشلت معالجة الملف في تطبيق Google Apps Script.');
+        let driveJson: any;
+        try {
+          driveJson = JSON.parse(rawText);
+        } catch {
+          throw new Error('استجابة غير صالحة من تطبيق Google Apps Script.');
+        }
+
+        if (!appsScriptRes.ok || !driveJson.success) {
+          const reason = driveJson.message || driveJson.error || 'فشلت معالجة الملف في تطبيق Google Apps Script.';
+          throw new Error(reason === 'Unauthorized' ? 'المفتاح السري غير مطابق بين الخادم و Google Apps Script (Unauthorized).' : reason);
         }
 
         driveFileId = driveJson.fileId;
+        driveViewUrl = driveJson.viewUrl;
+        drivePreviewUrl = driveJson.previewUrl;
+        driveThumbnailUrl = driveJson.thumbnailUrl;
+        driveShared = driveJson.shared;
         driveUploadedAt = driveJson.uploadedAt || new Date().toISOString();
         driveResultFolder = driveJson.folderName || targetFolderName;
         storageProvider = 'drive';
@@ -359,6 +377,10 @@ async function handleDriveUpload(req: Request, res: Response) {
       description: description || '',
       status: 'valid',
       driveFileId: driveFileId,
+      driveViewUrl,
+      drivePreviewUrl,
+      driveThumbnailUrl,
+      driveShared,
       driveCategory: category,
       driveFolderName: driveResultFolder,
       teacherId: verifiedTeacher ? verifiedTeacher.id : undefined,

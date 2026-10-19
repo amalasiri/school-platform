@@ -36,6 +36,10 @@ export interface EvidenceFile {
   serverUrl?: string;
   // Google Drive Integration fields
   driveFileId?: string;
+  driveViewUrl?: string;
+  drivePreviewUrl?: string;
+  driveThumbnailUrl?: string;
+  driveShared?: boolean;
   driveCategory?: 'director' | 'teacher';
   driveFolderName?: string;
   teacherId?: string;

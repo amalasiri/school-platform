@@ -36,7 +36,7 @@ export const EvidenceManagerView: React.FC<EvidenceManagerViewProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('all');
   const [selectedDomainFilter, setSelectedDomainFilter] = useState<string>('all');
-  const [previewFile, setPreviewFile] = useState<{ url: string; name: string; type: string } | null>(null);
+  const [previewFile, setPreviewFile] = useState<{ url: string; name: string; type: string; openUrl?: string } | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   // Flatten all evidence files across indicators with indicator metadata
@@ -110,8 +110,12 @@ export const EvidenceManagerView: React.FC<EvidenceManagerViewProps> = ({
     }
   };
 
-  const handlePreview = async (fileId: string, fileName: string, fileType: string) => {
+  const handlePreview = async (fileId: string, fileName: string, fileType: string, drive?: { previewUrl?: string; viewUrl?: string }) => {
     try {
+      if (drive?.previewUrl) {
+        setPreviewFile({ url: drive.previewUrl, name: fileName, type: 'drive', openUrl: drive.viewUrl });
+        return;
+      }
       const blob = await storageService.getFileBlob(fileId);
       if (!blob) {
         alert('تعذر استخراج ملف الشاهد.');
@@ -289,7 +293,7 @@ export const EvidenceManagerView: React.FC<EvidenceManagerViewProps> = ({
                     <td className="py-3 px-4 text-center">
                       <div className="inline-flex items-center gap-1">
                         <button
-                          onClick={() => handlePreview(file.id, file.fileName, file.fileType)}
+                          onClick={() => handlePreview(file.id, file.fileName, file.fileType, { previewUrl: file.drivePreviewUrl, viewUrl: file.driveViewUrl })}
                           className="p-1.5 text-slate-600 hover:text-emerald-700 hover:bg-slate-100 rounded-lg transition-colors"
                           title="معاينة"
                         >
@@ -352,7 +356,20 @@ export const EvidenceManagerView: React.FC<EvidenceManagerViewProps> = ({
               </button>
             </div>
             <div className="p-4 flex-1 overflow-auto flex items-center justify-center bg-slate-100 min-h-[400px]">
-              {previewFile.type.includes('image') ? (
+              {previewFile.type === 'drive' ? (
+                <div className="w-full flex flex-col gap-2">
+                  <iframe
+                    src={previewFile.url}
+                    title={previewFile.name}
+                    className="w-full h-[70vh] border-0 rounded bg-white"
+                  />
+                  {previewFile.openUrl && (
+                    <a href={previewFile.openUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-emerald-700 underline self-center">
+                      فتح في Google Drive
+                    </a>
+                  )}
+                </div>
+              ) : previewFile.type.includes('image') ? (
                 <img
                   src={previewFile.url}
                   alt={previewFile.name}

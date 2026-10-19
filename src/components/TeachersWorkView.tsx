@@ -308,9 +308,13 @@ export const TeachersWorkView: React.FC<TeachersWorkViewProps> = ({
   };
 
   // Preview or download evidence
-  const [previewEvidence, setPreviewEvidence] = useState<{ url: string; name: string } | null>(null);
+  const [previewEvidence, setPreviewEvidence] = useState<{ url: string; name: string; isDrive?: boolean; openUrl?: string } | null>(null);
 
   const handleOpenEvidence = async (file: EvidenceFile) => {
+    if (file.drivePreviewUrl) {
+      setPreviewEvidence({ url: file.drivePreviewUrl, name: file.fileName, isDrive: true, openUrl: file.driveViewUrl });
+      return;
+    }
     if (file.serverUrl) {
       setPreviewEvidence({ url: file.serverUrl, name: file.fileName });
       return;
@@ -880,7 +884,16 @@ export const TeachersWorkView: React.FC<TeachersWorkViewProps> = ({
               </button>
             </div>
             <div className="flex-1 overflow-auto p-4 flex items-center justify-center min-h-[300px]">
-              {previewEvidence.name.match(/\.(jpg|jpeg|png|webp)$/i) ? (
+              {previewEvidence.isDrive ? (
+                <div className="w-full flex flex-col gap-2">
+                  <iframe src={previewEvidence.url} title={previewEvidence.name} className="w-full h-[60vh] rounded-lg border border-slate-200" />
+                  {previewEvidence.openUrl && (
+                    <a href={previewEvidence.openUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-emerald-700 underline self-center">
+                      فتح في Google Drive
+                    </a>
+                  )}
+                </div>
+              ) : previewEvidence.name.match(/\.(jpg|jpeg|png|webp)$/i) ? (
                 <img src={previewEvidence.url} alt={previewEvidence.name} className="max-h-[60vh] max-w-full rounded-lg object-contain shadow-xs" />
               ) : (
                 <iframe src={previewEvidence.url} title={previewEvidence.name} className="w-full h-[60vh] rounded-lg border border-slate-200" />
