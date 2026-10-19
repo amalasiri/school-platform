@@ -1,12 +1,13 @@
 import React from 'react';
 import { SystemSettings, UserRole } from '../types';
-import { ShieldCheck, UserCheck, Menu } from 'lucide-react';
+import { ShieldCheck, UserCheck, Menu, LogOut } from 'lucide-react';
 
 interface HeaderProps {
   settings: SystemSettings;
   currentRole: UserRole;
   onRoleChange: (role: UserRole) => void;
   onToggleSidebar: () => void;
+  onLogout: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -14,6 +15,7 @@ export const Header: React.FC<HeaderProps> = ({
   currentRole,
   onRoleChange,
   onToggleSidebar,
+  onLogout,
 }) => {
   return (
     <header className="bg-white border-b border-slate-200/90 shadow-xs sticky top-0 z-40 print:relative print:border-b-2 print:border-emerald-800">
@@ -69,6 +71,14 @@ export const Header: React.FC<HeaderProps> = ({
           {/* أولاً: أعلى يسار المنصة - شعار وزارة التعليم الرسمي المعتمد */}
           <div className="flex items-center justify-end">
             <div className="flex items-center gap-2.5">
+              <button
+                onClick={onLogout}
+                className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 rounded-lg px-2.5 py-1.5 transition-colors no-print"
+                title="تسجيل الخروج"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">تسجيل الخروج</span>
+              </button>
               <div
                 className="h-14 sm:h-16 flex items-center justify-center px-2 py-1 bg-white/80 rounded-xl hover:bg-slate-50 transition-colors"
                 title="وزارة التعليم - المملكة العربية السعودية"

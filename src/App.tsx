@@ -15,7 +15,11 @@ import { TeachersWorkView } from './components/TeachersWorkView';
 import { IndicatorModal } from './components/IndicatorModal';
 import { Lock, Sparkles, X, ShieldAlert } from 'lucide-react';
 
-export default function App() {
+interface AppProps {
+  onLogout: () => void;
+}
+
+export default function App({ onLogout }: AppProps) {
   const [settings, setSettings] = useState<SystemSettings>(() => storageService.getSettings());
   const [domains, setDomains] = useState<Domain[]>(() => storageService.getDomains());
   const [criteria, setCriteria] = useState<Criterion[]>(() => storageService.getCriteria());
@@ -130,6 +134,7 @@ export default function App() {
         currentRole={currentRole}
         onRoleChange={setCurrentRole}
         onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
+        onLogout={onLogout}
       />
 
       {/* مساحة العمل الرئيسية مع القائمة الجانبية */}

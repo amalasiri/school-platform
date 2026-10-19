@@ -9,6 +9,7 @@ import {
   getVerifiedTeacher,
   getTeacherFolderName,
 } from './src/data/trustedStaff';
+import { registerAuthRoutes, requireAuth, logAuthConfigWarnings } from './server/auth';
 
 dotenv.config();
 
@@ -44,7 +45,7 @@ if (!fs.existsSync(DEADLINE_FILE)) {
 }
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 // Maximum file size: configurable via env, default 8 MB
 const MAX_FILE_SIZE_MB = parseInt(process.env.GOOGLE_DRIVE_MAX_FILE_SIZE_MB || '8', 10) || 8;
@@ -128,8 +129,14 @@ if (!fs.existsSync(PUBLIC_DIR)) {
   fs.mkdirSync(PUBLIC_DIR, { recursive: true });
 }
 
-// Serve public assets and files directly from /uploads
+// Public assets (logo, etc.) are needed by the login page
 app.use(express.static(PUBLIC_DIR));
+
+// Authentication: login/logout/me routes are public, everything below requires a director session
+registerAuthRoutes(app);
+app.use(requireAuth);
+
+// Evidence files are served only to authenticated users
 app.use('/uploads', express.static(UPLOADS_DIR));
 
 // API: Authorized Teachers List (for frontend dropdown / verification)
@@ -550,6 +557,8 @@ async function startServer() {
       res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
     });
   }
+
+  logAuthConfigWarnings();
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running at http://0.0.0.0:${PORT}`);
