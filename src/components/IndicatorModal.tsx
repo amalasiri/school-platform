@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Indicator, Criterion, Domain, EvidenceFile, UserRole, IndicatorStatus } from '../types';
 import { storageService } from '../services/storageService';
+import { useMaxFileSizeMb } from '../hooks/useMaxFileSizeMb';
 import {
   X,
   UploadCloud,
@@ -48,6 +49,7 @@ export const IndicatorModal: React.FC<IndicatorModalProps> = ({
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const maxFileSizeMb = useMaxFileSizeMb();
 
   // Allowed MIME types
   const allowedTypes = [
@@ -80,7 +82,8 @@ export const IndicatorModal: React.FC<IndicatorModalProps> = ({
     setIsUploading(true);
 
     const ALLOWED_EXTS = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'docx', 'xlsx'];
-    const MAX_SIZE_BYTES = 8 * 1024 * 1024; // 8 MB
+    // Limit comes from the server (GOOGLE_DRIVE_MAX_FILE_SIZE_MB); if unknown, the server still enforces it
+    const maxMb = await storageService.getMaxFileSizeMb();
 
     try {
       const newEvidenceList: EvidenceFile[] = [...(currentIndicator.evidenceFiles || [])];
@@ -88,9 +91,9 @@ export const IndicatorModal: React.FC<IndicatorModalProps> = ({
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
 
-        // Size check: max 8MB
-        if (file.size > MAX_SIZE_BYTES) {
-          throw new Error(`حجم الملف "${file.name}" يتجاوز الحد الأقصى المسموح به (8 ميجابايت).`);
+        // Size check against the server-configured limit
+        if (maxMb !== null && file.size > maxMb * 1024 * 1024) {
+          throw new Error(`حجم الملف "${file.name}" يتجاوز الحد الأقصى المسموح به (${maxMb} ميجابايت).`);
         }
 
         // Extension check
@@ -411,7 +414,7 @@ export const IndicatorModal: React.FC<IndicatorModalProps> = ({
                 الشواهد والوثائق المرفوعة ({currentIndicator.evidenceFiles?.length || 0})
               </h3>
               <span className="text-[11px] text-slate-500">
-                يدعم صيغ PDF، Word، Excel، والصور (حتى 25 م.ب للملف)
+                يدعم صيغ PDF، Word، Excel، والصور {maxFileSizeMb !== null && `(حتى ${maxFileSizeMb} م.ب للملف)`}
               </span>
             </div>
 

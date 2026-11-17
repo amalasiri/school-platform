@@ -50,6 +50,8 @@ const PORT = Number(process.env.PORT) || 3000;
 // Maximum file size: configurable via env, default 8 MB
 const MAX_FILE_SIZE_MB = parseInt(process.env.GOOGLE_DRIVE_MAX_FILE_SIZE_MB || '8', 10) || 8;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+// Files arrive as base64 inside JSON (~4/3 of the raw size), so the body limit follows the file limit
+const MAX_BODY_SIZE_MB = Math.max(50, Math.ceil(MAX_FILE_SIZE_MB * 1.4) + 5);
 
 // Allowed MIME types and extensions
 const ALLOWED_MIME_TYPES = new Set([
@@ -121,8 +123,8 @@ function isGoogleDriveConfigured(): boolean {
   );
 }
 
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: `${MAX_BODY_SIZE_MB}mb` }));
+app.use(express.urlencoded({ extended: true, limit: `${MAX_BODY_SIZE_MB}mb` }));
 
 const PUBLIC_DIR = path.resolve(__dirname, 'public');
 if (!fs.existsSync(PUBLIC_DIR)) {
@@ -562,6 +564,7 @@ async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running at http://0.0.0.0:${PORT}`);
+    console.log(`Max upload size: ${MAX_FILE_SIZE_MB} MB (GOOGLE_DRIVE_MAX_FILE_SIZE_MB)`);
   });
 }
 

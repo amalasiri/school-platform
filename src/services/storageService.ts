@@ -27,7 +27,29 @@ const openDB = (): Promise<IDBDatabase> => {
 
 import { AUTHORIZED_TEACHERS, AuthorizedTeacher } from '../data/trustedStaff';
 
+// Upload size limit comes from the server (GOOGLE_DRIVE_MAX_FILE_SIZE_MB) so it is configured in one place
+let maxFileSizeMbPromise: Promise<number | null> | null = null;
+
 export const storageService = {
+  // Returns the server's max upload size in MB, or null if it could not be read (the server still enforces it)
+  getMaxFileSizeMb(): Promise<number | null> {
+    if (!maxFileSizeMbPromise) {
+      maxFileSizeMbPromise = fetch('/api/drive/status')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          const mb = Number(data?.maxFileSizeMb);
+          if (Number.isFinite(mb) && mb > 0) return mb;
+          maxFileSizeMbPromise = null; // retry next time
+          return null;
+        })
+        .catch(() => {
+          maxFileSizeMbPromise = null;
+          return null;
+        });
+    }
+    return maxFileSizeMbPromise;
+  },
+
   // --- GOOGLE DRIVE & LOCAL BACKUP UPLOAD PIPELINE ---
   async uploadFileToDrive(params: {
     file: File;
@@ -150,7 +172,7 @@ export const storageService = {
       isConfigured: false,
       hasUrl: false,
       hasSecret: false,
-      maxFileSizeMb: 8,
+      maxFileSizeMb: null,
       allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'docx', 'xlsx'],
     };
   },

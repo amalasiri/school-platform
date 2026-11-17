@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Domain, Criterion, Indicator, UserRole, EvidenceFile, SystemSettings } from '../types';
 import { storageService } from '../services/storageService';
+import { useMaxFileSizeMb } from '../hooks/useMaxFileSizeMb';
 import { AUTHORIZED_TEACHERS, AuthorizedTeacher, getTeacherFolderName } from '../data/trustedStaff';
 import {
   GraduationCap,
@@ -164,7 +165,8 @@ export const TeachersWorkView: React.FC<TeachersWorkViewProps> = ({
 
   // Allowed file extensions
   const ALLOWED_EXTS = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'docx', 'xlsx'];
-  const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024; // 8 MB
+  // Limit comes from the server (GOOGLE_DRIVE_MAX_FILE_SIZE_MB); null until loaded, the server still enforces it
+  const maxFileSizeMb = useMaxFileSizeMb();
 
   // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -173,8 +175,8 @@ export const TeachersWorkView: React.FC<TeachersWorkViewProps> = ({
       const file = e.target.files[0];
 
       // Validate size
-      if (file.size > MAX_FILE_SIZE_BYTES) {
-        setUploadErrorMessage(`حجم الملف (${(file.size / (1024 * 1024)).toFixed(2)} م.ب) يتجاوز الحد الأقصى المسموح به (8 ميجابايت).`);
+      if (maxFileSizeMb !== null && file.size > maxFileSizeMb * 1024 * 1024) {
+        setUploadErrorMessage(`حجم الملف (${(file.size / (1024 * 1024)).toFixed(2)} م.ب) يتجاوز الحد الأقصى المسموح به (${maxFileSizeMb} ميجابايت).`);
         e.target.value = '';
         setSelectedFile(null);
         return;
@@ -515,7 +517,7 @@ export const TeachersWorkView: React.FC<TeachersWorkViewProps> = ({
               </p>
             </div>
             <div className="text-xs bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg px-2.5 py-1">
-              الحد الأقصى: 8 ميجابايت (PDF, Word, Excel, صور)
+              {maxFileSizeMb !== null ? `الحد الأقصى: ${maxFileSizeMb} ميجابايت (PDF, Word, Excel, صور)` : 'PDF, Word, Excel, صور'}
             </div>
           </div>
 

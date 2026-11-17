@@ -47,6 +47,9 @@ Any new route must be registered **after** `requireAuth` unless it is meant to b
 | GET/POST | `/api/deadline` | teacher submission deadline |
 | GET | `/api/firebase-config` | Firebase readiness |
 
+### Upload size limit
+`GOOGLE_DRIVE_MAX_FILE_SIZE_MB` (server env, default 8) is the single source of truth. The server enforces it in the upload handler and derives the JSON body limit from it (base64 adds ~33%). The frontend never hardcodes it: it reads `maxFileSizeMb` from `/api/drive/status` via `storageService.getMaxFileSizeMb()` / the `useMaxFileSizeMb()` hook (`src/hooks/`). Changing the env var only needs a server restart/republish; there's no rebuild. Practical ceiling is ~35 MB because the base64 payload is then forwarded to Apps Script.
+
 ## UI conventions
 - Root container: `min-h-screen bg-slate-50 … font-sans` with `dir="rtl"`.
 - Brand: emerald (`emerald-700/800/900`) for primary actions/active states, slate neutrals, amber for "future feature / locked", rose for errors.
